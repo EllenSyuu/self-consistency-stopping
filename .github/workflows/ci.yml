@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e ".[test,bench]"
+      - run: pytest -q
+      - name: End-to-end on one small setting
+        run: |
+          python scripts/prepare_monkey_business.py --out data --only GSM8K_Llama-3-70B-Instruct
+          python scripts/run_benchmark.py --data data --out /tmp/results --replicates 5
+          python scripts/make_table.py --summary /tmp/results/summary.json

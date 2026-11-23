@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "self-consistency-stopping"
+version = "0.1.0"
+description = "Early-stopping rules for LLM self-consistency, implemented once and compared on the same samples"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Ziyi Zhou" }]
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "scipy>=1.11", "mpmath>=1.3"]
+keywords = ["llm", "self-consistency", "majority vote", "early stopping", "sequential testing", "test-time compute"]
+
+[project.optional-dependencies]
+bench = ["huggingface_hub>=0.24", "ijson>=3.2", "matplotlib>=3.8"]
+test = ["pytest>=8"]
+
+[project.urls]
+Repository = "https://github.com/EllenSyuu/self-consistency-stopping"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
