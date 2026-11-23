@@ -36,14 +36,19 @@ class Result:
 
 
 def replay(labels: np.ndarray, rules: list[Rule], replicates: int, max_len: int, seed: int = 0,
-           tokens: np.ndarray | None = None) -> list[Result]:
+           tokens: np.ndarray | None = None, replace: bool = False,
+           correct: np.ndarray | None = None) -> list[Result]:
     """Feed every rule the same random orders of each problem's pool.
 
     `tokens`, if given, holds each recorded sample's output length; a rule's token cost is
     the total length of the samples it drew.
+    `replace=True` draws with replacement: i.i.d. samples from the pool's empirical
+    distribution, whose mode is then exactly the reference mode.
+    `correct`, if given, is a bool array [problems, classes] saying which answer classes are
+    right; without it only class 0 is right (labels built with the grader's help).
     """
     n_problems, pool = labels.shape
-    max_len = min(max_len, pool)
+    max_len = max_len if replace else min(max_len, pool)
     rng = np.random.default_rng(seed)
     modes = [pool_mode(labels[q]) for q in range(n_problems)]
     shape = (n_problems, replicates)
@@ -52,13 +57,16 @@ def replay(labels: np.ndarray, rules: list[Rule], replicates: int, max_len: int,
                           np.zeros(shape, np.int64) if tokens is not None else None) for r in rules}
     for q in range(n_problems):
         for k in range(replicates):
-            order = rng.choice(pool, size=max_len, replace=False)
+            order = rng.choice(pool, size=max_len, replace=replace)
             stream = labels[q, order]
             cum = np.concatenate(([0], np.cumsum(tokens[q, order]))) if tokens is not None else None
             for rule in rules:
                 d = rule.run(stream)
                 res = out[rule.name]
-                res.correct[q, k] = d.answer == CORRECT
+                if correct is None:
+                    res.correct[q, k] = d.answer == CORRECT
+                else:
+                    res.correct[q, k] = d.answer is not None and bool(correct[q, d.answer])
                 res.samples[q, k] = d.samples
                 res.matches_mode[q, k] = d.answer is not None and d.answer == modes[q]
                 res.status[q, k] = d.status

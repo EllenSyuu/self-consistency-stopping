@@ -236,7 +236,8 @@ class MartingaleMajorityCertificate:
     time with predictable per-round factors. Stop when both reach 1/epsilon; abstain (and
     return the majority) at the budget. The leader and runner-up are re-read from the
     counts before every draw, ties broken as in `_Tally`. Before the first valid answer
-    there is no leader, so those draws leave both e-processes unchanged.
+    there is no leader, so those draws leave both e-processes unchanged. While a leader
+    exists but no runner-up, the runner-up is "whichever other answer appears first".
     """
 
     epsilon: float = 0.1
@@ -268,7 +269,12 @@ class MartingaleMajorityCertificate:
                     log_run += np.log(self._factor(s, f, True))
                     log_oth += np.log(self._factor(s, o, True))
                     s += 1
-                elif x == B:
+                elif x == B or B is None:
+                    # While only one answer has been seen there is no runner-up yet. The
+                    # first different answer is then scored as a runner-up vote: leaving the
+                    # leader-vs-runner-up process untouched here (as v0.2 did) lets it grow on
+                    # leader votes without ever paying for the vote that creates the runner-up,
+                    # and it stops being a martingale when the two answers are equally likely.
                     log_run += np.log(self._factor(s, f, False))
                     f += 1
                 else:

@@ -26,7 +26,7 @@ def rules_for(task: str) -> list:
     """
     big = 40 if task == "GSM8K" else 64
     sc = [FixedN(n) for n in (1, 2, 3, 5, 8, 10, 16, 20, 32, 40, 64, 96, 128, 256)]
-    w = 8 if task == "MATH" else 5
+    w = 5 if task == "GSM8K" else 8
     return sc + [
         AdaptiveConsistencyBeta(threshold=0.95, budget=40),
         EarlyStoppingSC(window=w, budget=big, name=f"ESC"),

@@ -155,3 +155,23 @@ def test_summary_intervals_contain_the_estimate_and_pair_across_rules():
         assert lo <= s["accuracy"] <= hi
         lo, hi = s["mean_samples_ci"]
         assert lo <= s["mean_samples"] <= hi
+
+
+def test_mmc_first_runner_up_vote_is_charged_to_the_leader_vs_runner_up_process():
+    """Regression: v0.2 scored the vote that creates the runner-up as an 'other' vote."""
+    rule = MartingaleMajorityCertificate(epsilon=1e-9, budget=3)
+    # stream A, A, B: with one leader vote and then one runner-up vote the run process is
+    # 2E[theta | 0, 0] * 2E[1 - theta | 1, 0]; check through the public behaviour instead:
+    # a 1-1 alternation can never certify, however long it runs.
+    alt = np.array([A, B] * 200)
+    assert MartingaleMajorityCertificate(epsilon=0.1, budget=400).run(alt).status == "abstained"
+    hit, miss = rule._factor(0, 0, True), rule._factor(1, 0, False)
+    assert hit > 1 > miss and hit * miss < 1
+
+
+def test_mmc_stop_probability_at_an_exact_two_way_tie_is_within_epsilon():
+    rng = np.random.default_rng(11)
+    rule = MartingaleMajorityCertificate(epsilon=0.1, budget=200)
+    reps = 1500
+    stops = sum(rule.run(rng.choice([A, B], size=200)).status == "stopped" for _ in range(reps))
+    assert stops / reps <= 0.1 + 2.5 * np.sqrt(0.1 * 0.9 / reps)

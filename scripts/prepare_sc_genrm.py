@@ -14,7 +14,10 @@ The sets come without correctness flags, so this script grades them:
     GPQA   the letter after "The final answer is", compared with the reference letter
     MATH   math-verify on the extracted answer against the reference's last \\boxed{...}
 Labels follow scripts/prepare_monkey_business.py: 0 correct, -1 no answer, k > 0 wrong
-answers grouped by normalised string. For QwQ-32B the output also holds each sample's
+answers grouped by normalised string. Because that grouping merges every answer the grader
+accepts into one class, it uses the reference answer. The output therefore also holds
+`online_labels`, classes formed from the normalised answer string alone (what a deployed
+system could compute), and `online_correct[problem, class]`. For QwQ-32B the output also holds each sample's
 length in QwQ tokens (Qwen/QwQ-32B tokenizer), so rules can be compared on tokens.
 
     python scripts/prepare_sc_genrm.py --out data
@@ -149,27 +152,36 @@ def prepare(name: str, out: Path) -> Path:
     n = min(len(r["samples"]) for r in records)
     n = min(n, keep) if keep else n
     labels = np.empty((len(records), n), dtype=np.int16)
+    online = np.empty((len(records), n), dtype=np.int16)   # classes by answer string only
+    online_right: list[dict[int, bool]] = []
     tokenizer = None
     if name in TOKENIZER:
         from tokenizers import Tokenizer
         tokenizer = Tokenizer.from_file(hf_hub_download(TOKENIZER[name], "tokenizer.json"))
         tokens = np.empty((len(records), n), dtype=np.int32)
     for q, rec in enumerate(records):
-        grade, ids = Grader(task, str(rec["gt_answer"])), {}
+        grade, ids, string_ids, right = Grader(task, str(rec["gt_answer"])), {}, {}, {}
         samples = rec["samples"][:n]
         for i, s in enumerate(samples):
             a = extract(task, s)
             if a is None or a == "":
-                labels[q, i] = -1
-            elif grade(a):
-                labels[q, i] = 0
-            else:
-                labels[q, i] = ids.setdefault(a, len(ids) + 1)
+                labels[q, i] = online[q, i] = -1
+                continue
+            ok = grade(a)
+            labels[q, i] = 0 if ok else ids.setdefault(a, len(ids) + 1)
+            online[q, i] = string_ids.setdefault(a, len(string_ids))
+            right[int(online[q, i])] = ok
+        online_right.append(right)
         if tokenizer is not None:
             tokens[q] = [len(e.ids) for e in tokenizer.encode_batch(samples, add_special_tokens=False)]
     out.mkdir(parents=True, exist_ok=True)
     dest = out / f"{name}.npz"
-    arrays = {"labels": labels}
+    width = max((max(r) for r in online_right if r), default=0) + 1
+    online_correct = np.zeros((len(records), width), dtype=bool)
+    for q, r in enumerate(online_right):
+        for k, ok in r.items():
+            online_correct[q, k] = ok
+    arrays = {"labels": labels, "online_labels": online, "online_correct": online_correct}
     if tokenizer is not None:
         arrays["tokens"] = tokens
     np.savez_compressed(dest, **arrays)

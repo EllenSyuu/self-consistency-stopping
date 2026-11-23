@@ -52,3 +52,18 @@ def test_gpqa_takes_the_letter_after_the_final_answer_phrase():
 def test_math_grading_accepts_equivalent_forms():
     g = genrm.Grader("MATH", r"so the answer is $\boxed{\frac{1}{2}}$")
     assert g(genrm.extract("MATH", r"thus $\boxed{0.5}$")) and not g("\\frac{1}{3}")
+
+
+bench_spec = importlib.util.spec_from_file_location(
+    "bench", Path(__file__).resolve().parents[1] / "scripts" / "run_benchmark.py")
+bench = importlib.util.module_from_spec(bench_spec)
+bench_spec.loader.exec_module(bench)
+
+
+def test_esc_window_and_budget_follow_the_documented_protocol():
+    """Regression: v0.2 ran AIME and GPQA with window 5 while documenting window 8."""
+    def esc(task):
+        return next(r for r in bench.rules_for(task) if r.name == "ESC")
+    assert (esc("GSM8K").window, esc("GSM8K").budget) == (5, 40)
+    for task in ("MATH", "AIME", "GPQA"):
+        assert (esc(task).window, esc(task).budget) == (8, 64), task
