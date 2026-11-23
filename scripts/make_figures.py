@@ -42,6 +42,11 @@ RULES = {
     "MMC (ε=0.1)": ("MMC, ε = 0.1", 3, "^"),
 }
 PRETTY = {
+    "AIME25_QwQ-32B": "AIME 2025 · QwQ-32B",
+    "GPQA_Llama-3.3-70B-Instruct": "GPQA-Diamond · Llama-3.3-70B-Instruct",
+    "MATH_Llama-3.3-70B-Instruct": "MATH · Llama-3.3-70B-Instruct",
+    "MATH_Qwen-2.5-7B-Instruct": "MATH · Qwen-2.5-7B-Instruct",
+    "MATH_Llama-3.1-8B-Instruct": "MATH · Llama-3.1-8B-Instruct",
     "GSM8K_Llama-3-70B-Instruct": "GSM8K · Llama-3-70B-Instruct",
     "GSM8K_Llama-3-8B-Instruct": "GSM8K · Llama-3-8B-Instruct",
     "MATH_Llama-3-70B-Instruct": "MATH · Llama-3-70B-Instruct",
@@ -54,6 +59,7 @@ PRETTY = {
 
 def short(key: str, setting: dict) -> str:
     task, model = key.split("_", 1)
+    task = {"AIME25": "AIME 25", "GPQA": "GPQA-D"}.get(task, task)
     model = model.replace("-Instruct", "\nInstruct")
     return f"{task}\n{model}\n{setting['single_sample_accuracy']:.0%}"
 
@@ -103,7 +109,7 @@ def frontier(ax, t: Theme, setting: dict, title: str, label_sc: bool) -> None:
 
 
 def fig_frontiers(summary: dict, t: Theme, out: Path) -> None:
-    picks = ["GSM8K_Llama-3-70B-Instruct", "MATH_Llama-3-70B-Instruct", "MATH_Gemma-2B"]
+    picks = ["GSM8K_Llama-3-70B-Instruct", "AIME25_QwQ-32B", "MATH_Gemma-2B"]
     fig, axes = plt.subplots(len(picks), 1, figsize=(WIDTH, 10.5))
     for k, (ax, key) in enumerate(zip(axes, picks)):
         s = summary["settings"][key]
@@ -121,7 +127,7 @@ def fig_frontiers(summary: dict, t: Theme, out: Path) -> None:
 def fig_cost_by_strength(summary: dict, t: Theme, out: Path) -> None:
     settings = sorted(summary["settings"].items(), key=lambda kv: kv[1]["single_sample_accuracy"])
     x = np.arange(len(settings))
-    fig, ax = plt.subplots(figsize=(WIDTH, 5.8))
+    fig, ax = plt.subplots(figsize=(WIDTH * 1.3, 6.2))
     for name, (label, slot, marker) in RULES.items():
         y = [rows(s)[name]["mean_samples"] for _, s in settings]
         ax.plot(x, y, color=t.series[slot], lw=2, marker=marker, ms=8, mec=t.surface, mew=2, label=label, zorder=3)
@@ -131,11 +137,11 @@ def fig_cost_by_strength(summary: dict, t: Theme, out: Path) -> None:
     yt = [2, 4, 8, 16, 32, 64]
     ax.set_yticks(yt, [str(v) for v in yt])
     ax.set_ylim(2.5, 110)
-    ax.set_xticks(x, [short(k, s) for k, s in settings], fontsize=9.5)
+    ax.set_xticks(x, [short(k, s) for k, s in settings], fontsize=9)
     ax.set_xlim(-0.4, len(settings) + 0.9)
     ax.set_xlabel("Task · model · how often a single sample is right")
     ax.set_ylabel("Samples per question (mean)")
-    ax.set_title("The less often one sample is right, the fewer samples any rule saves")
+    ax.set_title("Samples each rule spends: few when answers agree, many when they scatter")
     ax.legend(loc="upper center", ncol=4, bbox_to_anchor=(0.5, 1.0))
     fig.tight_layout()
     fig.savefig(out / f"cost_by_strength-{t.name}.png")
@@ -147,7 +153,7 @@ def fig_guarantee_audit(summary: dict, t: Theme, out: Path) -> None:
     audit = [("ConSol-SPRT", "ConSol (configured α = 0.05)", 2, "D", 0.05),
              ("Adaptive-Consistency", "Adaptive-Consistency (stops at 95% posterior)", 0, "o", 0.05),
              ("MMC (ε=0.1)", "MMC (certified ε = 0.1)", 3, "^", 0.10)]
-    fig, ax = plt.subplots(figsize=(WIDTH, 5.8))
+    fig, ax = plt.subplots(figsize=(WIDTH * 1.3, 6.2))
     xs = np.arange(len(settings))
     for j, (name, label, slot, marker, _nominal) in enumerate(audit):
         y = [rows(s)[name]["mode_error_when_stopped"] or 0.0 for _, s in settings]
@@ -159,15 +165,50 @@ def fig_guarantee_audit(summary: dict, t: Theme, out: Path) -> None:
     ax.axhline(0.10, color=t.ink_3, lw=1.2, ls=(0, (1, 3)), zorder=1)
     ax.annotate("10%", (len(settings) - 0.45, 0.10), xytext=(4, 0), textcoords="offset points", va="center",
                 color=t.ink_2, fontsize=10.5, annotation_clip=False)
-    ax.set_xticks(xs, [short(k, s) for k, s in settings], fontsize=9.5)
+    ax.set_xticks(xs, [short(k, s) for k, s in settings], fontsize=9)
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0, decimals=0))
     ax.set_ylabel("Wrong mode when the rule stopped")
     ax.set_title("When a rule says it is sure, how often is its answer not the model's most likely one?")
     ax.legend(loc="upper right", ncol=1)
     ax.set_xlim(-0.6, len(settings) - 0.1)
-    ax.set_ylim(-0.01, 0.30)
+    top = max((rows(v)[n]["mode_error_when_stopped"] or 0) for _, v in settings for n, *_ in audit)
+    ax.set_ylim(-0.01, max(0.12, top * 1.15))
     fig.tight_layout()
     fig.savefig(out / f"guarantee_audit-{t.name}.png")
+    plt.close(fig)
+
+
+def fig_tokens(summary: dict, t: Theme, out: Path, key: str = "AIME25_QwQ-32B") -> None:
+    s = summary["settings"].get(key)
+    if s is None:
+        return
+    r = rows(s)
+    sc = sorted((v["mean_tokens"] / 1e3, v["accuracy"]) for k, v in r.items() if k.startswith("SC@"))
+    xs, ys = zip(*sc)
+    fig, ax = plt.subplots(figsize=(WIDTH, 5.2))
+    ax.plot(xs, ys, color=t.ink_3, lw=2, zorder=2, label="Fixed-N self-consistency")
+    ax.scatter(xs, ys, s=18, color=t.ink_3, zorder=2, edgecolor=t.surface, linewidth=1)
+    for n in (1, 8, 40, 256):
+        v = r[f"SC@{n}"]
+        ax.annotate(f"N = {n}", (v["mean_tokens"] / 1e3, v["accuracy"]), xytext=(0, -16), textcoords="offset points",
+                    ha="center", color=t.ink_3, fontsize=9.5)
+    for name, (label, slot, marker) in RULES.items():
+        v = r[name]
+        ax.scatter(v["mean_tokens"] / 1e3, v["accuracy"], s=90, marker=marker, color=t.series[slot],
+                   edgecolor=t.surface, linewidth=2, zorder=4, label=label)
+    ax.set_xscale("log")
+    ticks = [16, 50, 100, 250, 500, 1000, 4000]
+    ax.set_xticks(ticks, [f"{k:,}K" if k < 1000 else f"{k // 1000}M" for k in ticks])
+    ax.set_xlim(12, 5000)
+    ax.set_ylim(min(ys) - 0.025, max(ys) + 0.01)
+    ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5, steps=[1, 2, 2.5, 5, 10]))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0, decimals=0))
+    ax.set_xlabel("Output tokens per question (mean, log scale)")
+    ax.set_ylabel("Accuracy")
+    ax.set_title(f"{PRETTY[key]}: accuracy against tokens spent")
+    ax.legend(loc="lower right", ncol=1)
+    fig.tight_layout()
+    fig.savefig(out / f"tokens_qwq-{t.name}.png")
     plt.close(fig)
 
 
@@ -183,6 +224,7 @@ def main() -> None:
         fig_frontiers(summary, t, args.out)
         fig_cost_by_strength(summary, t, args.out)
         fig_guarantee_audit(summary, t, args.out)
+        fig_tokens(summary, t, args.out)
     print(f"wrote figures to {args.out}")
 
 

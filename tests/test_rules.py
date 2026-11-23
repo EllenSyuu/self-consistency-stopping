@@ -135,3 +135,23 @@ def test_online_use_reaches_the_same_decision_as_a_full_stream():
         if d.status != "need_more":
             break
     assert d == rule.run(stream)
+
+
+def test_token_cost_is_the_length_of_the_samples_drawn():
+    labels = np.array([[0, 0, 0, 0, 1, 1, 1, 1]], dtype=np.int16)
+    tokens = np.array([[10, 20, 30, 40, 50, 60, 70, 80]])
+    res = replay(labels, [FixedN(3), FixedN(8)], replicates=50, max_len=8, seed=0, tokens=tokens)
+    assert np.all(res[1].tokens == tokens.sum())
+    assert 60 <= res[0].tokens.min() and res[0].tokens.max() <= 210
+
+
+def test_summary_intervals_contain_the_estimate_and_pair_across_rules():
+    rng = np.random.default_rng(2)
+    labels = rng.choice([0, 1, 2], size=(40, 500), p=[.5, .3, .2]).astype(np.int16)
+    res = replay(labels, [FixedN(5), AdaptiveConsistencyBeta()], replicates=5, max_len=64, seed=1)
+    for r in res:
+        s = summarise(r)
+        lo, hi = s["accuracy_ci"]
+        assert lo <= s["accuracy"] <= hi
+        lo, hi = s["mean_samples_ci"]
+        assert lo <= s["mean_samples"] <= hi

@@ -19,8 +19,12 @@ MAX_LEN = 256   # longest budget of any rule (ConSol's default)
 
 
 def rules_for(task: str) -> list:
-    """Every rule at the settings its authors used for this kind of task."""
-    big = 64 if task == "MATH" else 40
+    """Every rule at the settings its authors used for this kind of task.
+
+    GSM8K uses the papers' settings for easier tasks (ESC w = 5, L = 40); MATH, AIME and
+    GPQA use their settings for MATH (w = 8, L = 64).
+    """
+    big = 40 if task == "GSM8K" else 64
     sc = [FixedN(n) for n in (1, 2, 3, 5, 8, 10, 16, 20, 32, 40, 64, 96, 128, 256)]
     w = 8 if task == "MATH" else 5
     return sc + [
@@ -45,15 +49,19 @@ def main() -> None:
     for path in sorted(args.data.glob("*.npz")):
         config = path.stem
         task, model = config.split("_", 1)
-        labels = np.load(path)["labels"]
+        z = np.load(path)
+        labels = z["labels"]
+        tokens = z["tokens"] if "tokens" in z.files else None
+        if task.startswith("AIME"):
+            task = "AIME"
         t0 = time.perf_counter()
-        results = replay(labels, rules_for(task), args.replicates, MAX_LEN, seed=args.seed)
+        results = replay(labels, rules_for(task), args.replicates, MAX_LEN, seed=args.seed, tokens=tokens)
         rows = [summarise(r) for r in results]
         ceiling = float(np.mean([np.mean(labels[q] == 0) > 0 and
                                  np.bincount(labels[q][labels[q] >= 0]).argmax() == 0
                                  for q in range(labels.shape[0])]))
         summary["settings"][config] = {
-            "task": task, "model": model, "problems": int(labels.shape[0]),
+            "task": task, "model": model, "problems": int(labels.shape[0]), "pool": int(labels.shape[1]),
             "single_sample_accuracy": float(np.mean(labels == 0)),
             "mode_accuracy": ceiling,
             "rules": rows,

@@ -25,5 +25,6 @@ jobs:
       - name: End-to-end on one small setting
         run: |
           python scripts/prepare_monkey_business.py --out data --only GSM8K_Llama-3-70B-Instruct
+          python scripts/prepare_sc_genrm.py --out data --only GPQA_Llama-3.3-70B-Instruct
           python scripts/run_benchmark.py --data data --out /tmp/results --replicates 5
           python scripts/make_table.py --summary /tmp/results/summary.json

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "self-consistency-stopping"
-version = "0.1.0"
+version = "0.2.0"
 description = "Early-stopping rules for LLM self-consistency, implemented once and compared on the same samples"
 readme = "README.md"
 license = "MIT"
@@ -14,7 +14,7 @@ dependencies = ["numpy>=1.26", "scipy>=1.11", "mpmath>=1.3"]
 keywords = ["llm", "self-consistency", "majority vote", "early stopping", "sequential testing", "test-time compute"]
 
 [project.optional-dependencies]
-bench = ["huggingface_hub>=0.24", "ijson>=3.2", "matplotlib>=3.8"]
+bench = ["huggingface_hub>=0.24", "ijson>=3.2", "matplotlib>=3.8", "pyyaml>=6", "tokenizers>=0.19", "math-verify[antlr4_13_2]>=0.7"]
 test = ["pytest>=8"]
 
 [project.urls]

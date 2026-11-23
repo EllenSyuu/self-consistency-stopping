@@ -4,7 +4,7 @@ title: "self-consistency-stopping: early-stopping rules for LLM self-consistency
 authors:
   - family-names: Zhou
     given-names: Ziyi
-version: 0.1.0
+version: 0.2.0
 date-released: 2026-11-23
 license: MIT
 repository-code: "https://github.com/EllenSyuu/self-consistency-stopping"

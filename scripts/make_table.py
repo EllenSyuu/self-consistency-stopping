@@ -23,6 +23,7 @@ def main() -> None:
     for key, v in settings:
         rows = {r["rule"]: r for r in v["rules"]}
         task, model = key.split("_", 1)
+        task = {"AIME25": "AIME 2025", "GPQA": "GPQA-Diamond"}.get(task, task)
         cells = [f"{task} · {model}", f"{v['single_sample_accuracy']:.1%}",
                  f"{rows['SC@40']['accuracy']:.1%} · 40"]
         for r in SHOW:
