@@ -49,25 +49,26 @@ differences come from the rules, not from sampling luck.
    rarely settles, and ESC and MMC use 40 to 64 of their 64 samples; at equal cost every
    rule is within about 2 points of the fixed-N curve. GPQA-Diamond shows the other
    side: Llama-3.3-70B is right only 46% of the time but usually picks the same letter,
-   so every rule stops early (5.7 to 24.5 samples), and voting barely helps at all
+   so Adaptive-Consistency, ConSol and MMC stop early (5.7 to 25.8 samples; ESC, which
+   waits for eight identical answers in a row, still uses 37.8), and voting barely helps at all
    (45.7% for one sample, 48.2% for 40).
-4. **"Guaranteed" does not always mean what it says.** MMC's certificate held in every
-   setting: when it stopped, its answer differed from the model's most frequent answer
-   in at most 0.3% of runs, against a promised 10%. It pays by stopping in only 3% to
-   47% of runs on the hardest settings. ConSol, configured with α = 0.05, stops in 91%
-   to 100% of runs, but its answer then differs from the model's most frequent answer in
-   0.6% to 26.9% of stops, rising as the task gets harder; in 6 of the 12 settings the
-   whole 95% interval lies above 5%. With its default parameters its test reduces to
-   "stop when the leader is three votes ahead".
+4. **Check what a rule actually promises.** MMC is the only rule here that certifies
+   its answer. When it stopped, its answer differed from the model's most frequent
+   answer in at most 0.2% of runs, against a 10% target; it pays by stopping in only 3%
+   to 48% of runs on the hardest settings. ConSol states no such guarantee: with its
+   default parameters its test is exactly "stop when the leader is three votes ahead",
+   so it stops in 91% to 100% of runs, and on problems whose two leading answers are
+   close it often returns the runner-up (0.6% to 26.9% of stops, rising as the task
+   gets harder).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/tokens_qwq-dark.png">
-  <img alt="Accuracy against output tokens per question for QwQ-32B on AIME 2025. Fixed-N self-consistency rises from 67.7% at 16K tokens to 79.9% at 4M. Adaptive-Consistency sits above the curve at 260K tokens and 78.4%; ConSol at 171K and 77.4%; ESC and MMC near 535K and 78.5 to 79.0%." src="docs/img/tokens_qwq-light.png" width="100%">
+  <img alt="Accuracy against output tokens per question for QwQ-32B on AIME 2025. Fixed-N self-consistency rises from 67.7% at 16K tokens to 79.9% at 4M. Adaptive-Consistency sits above the curve at 260K tokens and 78.4%; ConSol at 171K and 77.4%; MMC at 530K and 79.0%; ESC at 707K and 79.0%, above the cost of fixed N = 40." src="docs/img/tokens_qwq-light.png" width="100%">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/guarantee_audit-dark.png">
-  <img alt="Share of stopped runs whose answer is not the model's most frequent answer, for 12 settings ordered by single-sample accuracy. MMC stays at or below 0.3%, Adaptive-Consistency between 0.1% and 3.6%, ConSol from 26.9% on the weakest setting down to 0.6% on the strongest, against reference lines at 5% and 10%." src="docs/img/guarantee_audit-light.png" width="100%">
+  <img alt="Share of stopped runs whose answer is not the model's most frequent answer, for 12 settings ordered by single-sample accuracy. MMC stays at or below 0.2%, Adaptive-Consistency between 0.1% and 3.6%, ConSol from 26.9% on the weakest setting down to 0.6% on the strongest, against reference lines at 5% and 10%." src="docs/img/guarantee_audit-light.png" width="100%">
 </picture>
 
 <sub>"The model's most frequent answer" is the mode of all recorded samples for the
@@ -76,25 +77,25 @@ consistently wrong.</sub>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/cost_by_strength-dark.png">
-  <img alt="Mean samples per question for four rules across 12 settings ordered by single-sample accuracy. All rules use 36 to 81 samples on the weakest MATH settings and 3.5 to 9 on the strongest; GPQA-Diamond breaks the trend with 5.7 to 24.5." src="docs/img/cost_by_strength-light.png" width="100%">
+  <img alt="Mean samples per question for four rules across 12 settings ordered by single-sample accuracy. All rules use 36 to 81 samples on the weakest MATH settings and 3.5 to 9 on the strongest; on GPQA-Diamond three of the four rules break the trend with 5.7 to 25.8, while ESC uses 37.8." src="docs/img/cost_by_strength-light.png" width="100%">
 </picture>
 
 ## Results
 
 | Setting | One sample | Fixed N = 40 | Adaptive-Consistency | ESC | ConSol | MMC (ε = 0.1) |
 |---|---|---|---|---|---|---|
-| GSM8K · Llama-3-70B-Instruct | 93.0% | 96.8% · 40 | 96.8% · 5.4 | 96.8% · 7.9 | 96.7% · 3.5 | 96.8% · 9.0 |
-| GSM8K · Llama-3-8B-Instruct | 76.8% | 87.0% · 40 | 86.9% · 10.1 | 86.9% · 15.2 | 87.0% · 6.2 | 87.0% · 16.6 |
-| MATH · Qwen-2.5-7B-Instruct | 68.5% | 78.7% · 40 | 78.7% · 13.4 | 79.3% · 33.0 | 79.0% · 11.6 | 79.2% · 26.3 |
-| MATH · Llama-3.3-70B-Instruct | 68.0% | 78.5% · 40 | 78.4% · 12.8 | 78.7% · 32.1 | 78.0% · 10.8 | 78.7% · 25.5 |
-| AIME 2025 · QwQ-32B | 67.8% | 78.5% · 40 | 78.4% · 12.5 | 78.5% · 25.1 | 77.4% · 7.9 | 79.0% · 25.6 |
-| MATH · Llama-3-70B-Instruct | 47.9% | 60.2% · 40 | 60.1% · 20.2 | 60.7% · 45.6 | 60.7% · 24.7 | 60.7% · 40.4 |
-| GPQA-Diamond · Llama-3.3-70B-Instruct | 45.7% | 48.2% · 40 | 48.2% · 12.0 | 48.2% · 22.4 | 48.3% · 5.7 | 48.0% · 24.5 |
-| MATH · Llama-3.1-8B-Instruct | 33.1% | 52.9% · 40 | 52.9% · 26.8 | 54.4% · 54.2 | 55.3% · 44.5 | 54.4% · 50.6 |
-| MATH · Llama-3-8B-Instruct | 26.8% | 42.2% · 40 | 42.2% · 28.6 | 42.8% · 57.6 | 43.0% · 34.6 | 42.8% · 54.0 |
-| MATH · Gemma-7B | 20.2% | 39.9% · 40 | 39.9% · 31.6 | 41.5% · 60.9 | 42.2% · 61.8 | 41.5% · 58.6 |
-| MATH · Llama-3-8B | 14.7% | 32.1% · 40 | 32.0% · 34.0 | 33.2% · 62.9 | 33.9% · 72.0 | 33.2% · 61.5 |
-| MATH · Gemma-2B | 9.3% | 22.8% · 40 | 22.8% · 36.3 | 23.8% · 63.5 | 24.5% · 81.4 | 23.8% · 62.9 |
+| GSM8K · Llama-3-70B-Instruct | 93.0% | 96.8% · 40 | 96.8% · 5.4 | 96.8% · 7.9 | 96.7% · 3.5 | 96.8% · 9.1 |
+| GSM8K · Llama-3-8B-Instruct | 76.8% | 87.0% · 40 | 86.9% · 10.1 | 86.9% · 15.2 | 87.0% · 6.2 | 87.0% · 16.3 |
+| MATH · Qwen-2.5-7B-Instruct | 68.5% | 78.7% · 40 | 78.7% · 13.4 | 79.3% · 33.0 | 79.0% · 11.6 | 79.3% · 26.0 |
+| MATH · Llama-3.3-70B-Instruct | 68.0% | 78.5% · 40 | 78.4% · 12.8 | 78.7% · 32.1 | 78.0% · 10.8 | 78.7% · 25.3 |
+| AIME 2025 · QwQ-32B | 67.8% | 78.5% · 40 | 78.4% · 12.5 | 79.0% · 35.2 | 77.4% · 7.9 | 79.0% · 25.5 |
+| MATH · Llama-3-70B-Instruct | 47.9% | 60.2% · 40 | 60.1% · 20.2 | 60.7% · 45.6 | 60.7% · 24.7 | 60.7% · 39.8 |
+| GPQA-Diamond · Llama-3.3-70B-Instruct | 45.7% | 48.2% · 40 | 48.2% · 12.0 | 48.1% · 37.8 | 48.3% · 5.7 | 48.0% · 25.8 |
+| MATH · Llama-3.1-8B-Instruct | 33.1% | 52.9% · 40 | 52.9% · 26.8 | 54.4% · 54.2 | 55.3% · 44.5 | 54.4% · 50.1 |
+| MATH · Llama-3-8B-Instruct | 26.8% | 42.2% · 40 | 42.2% · 28.6 | 42.8% · 57.6 | 43.0% · 34.6 | 42.8% · 53.6 |
+| MATH · Gemma-7B | 20.2% | 39.9% · 40 | 39.9% · 31.6 | 41.5% · 60.9 | 42.2% · 61.8 | 41.5% · 58.1 |
+| MATH · Llama-3-8B | 14.7% | 32.1% · 40 | 32.0% · 34.0 | 33.2% · 62.9 | 33.9% · 72.0 | 33.2% · 61.2 |
+| MATH · Gemma-2B | 9.3% | 22.8% · 40 | 22.8% · 36.3 | 23.8% · 63.5 | 24.5% · 81.4 | 23.8% · 62.8 |
 
 Each cell: accuracy · mean samples per question, over all problems and 200 random sample
 orders per problem. Budgets follow each paper: 40 for Adaptive-Consistency; 40 (GSM8K)
@@ -108,9 +109,9 @@ at the same cost on the frontier figure, not only with the N = 40 column.
 | Fixed N = 40 | 78.5% | 40.0 | 643K | — |
 | Fixed N = 64 | 79.1% | 64.0 | 1,029K | +60% |
 | Adaptive-Consistency | 78.4% | 12.5 | 260K | −60% |
-| ESC | 78.5% | 25.1 | 536K | −17% |
+| ESC | 79.0% | 35.2 | 707K | +10% |
 | ConSol | 77.4% | 7.9 | 171K | −73% |
-| MMC (ε = 0.1) | 79.0% | 25.6 | 535K | −17% |
+| MMC (ε = 0.1) | 79.0% | 25.5 | 530K | −18% |
 
 With 30 problems, each accuracy carries a 95% interval about ±14 points wide
 (resampling problems). The rules are compared on identical sample orders, so their
@@ -124,7 +125,7 @@ its interval, fixed N from 1 to 256 and MMC at ε = 0.05 are in
 |---|---|---|---|
 | Fixed N | Wang et al., ICLR 2023 | after N samples | N = 1 … 256 |
 | Adaptive-Consistency | Aggarwal et al., EMNLP 2023 | Beta(v₁+1, v₂+1) puts > 0.95 on p₁ > p₂ (top two counts) | threshold 0.95, budget 40 |
-| ESC | Li et al., ICLR 2024 | a window of w samples is unanimous | w = 5, L = 40 (GSM8K); w = 8, L = 64 (other tasks) |
+| ESC | Li et al., ICLR 2024 | a window of w samples is unanimous | w = 5, L = 40 (GSM8K); w = 8, L = 64 (MATH, as in the paper; AIME and GPQA use the MATH setting, our choice) |
 | ConSol | Lee et al., 2025 | SPRT of p = ½ against p = 0.5001 on the top two counts crosses a boundary; samples drawn in batches | the authors' `consol` 0.3.0 defaults: α = 0.05, budget 256; SPRT and mSPRT |
 | MMC | Cordero-Encinar & Duncan, 2025 | two e-processes (leader vs runner-up, leader vs the rest) both reach 1/ε | truncated Beta(½, ½) mixture, ε = 0.1 and 0.05, budget 40 or 64 |
 
@@ -150,7 +151,7 @@ implementation could not be shown to be faithful.
 
 ```bash
 pip install -e ".[bench,test]"
-pytest -q                                                  # 31 tests, about 2 s
+pytest -q                                                  # 34 tests, about 5 s
 python scripts/prepare_monkey_business.py --out data       # 7 settings, downloads about 4.3 GB
 python scripts/prepare_sc_genrm.py --out data              # 5 settings, about 0.55 GB, grades with math-verify
 python scripts/run_benchmark.py --data data --out results --replicates 200   # about 11 minutes on 2 cores
@@ -200,11 +201,29 @@ recorded stream, with the same decision either way (tested).
 * **One reasoning model.** QwQ-32B on AIME 2025 (30 problems) is the only long
   chain-of-thought setting; the others are instruction-tuned or base models on GSM8K,
   MATH and GPQA-Diamond.
-* **Answer grouping.** Wrong answers are grouped by string normalisation, so two wrong
-  answers that are mathematically equal but written differently vote separately.
+* **Answer grouping uses the grader for correct answers.** All samples the grader
+  accepts form one class, which a live system could not know; wrong answers are grouped
+  by string normalisation only. With classes built from the normalised string alone, on
+  the two MATH settings checked so far every rule loses 0.5 to 1.6 accuracy points and
+  needs 4% to 28% more samples, so the table is an upper bound. `prepare_sc_genrm.py`
+  now also writes these grader-free classes; a full rerun on them is planned.
+* **"Matches fixed N = 40" is a point estimate.** Intervals for differences between
+  rules, and a non-inferiority test, are not reported yet.
 * **Costs are output samples or tokens.** Prompt tokens and wall-clock latency are not
   modelled; parallel sampling would make an adaptive rule's latency cost larger than its
   token cost suggests.
+
+## Corrections
+
+* **ESC on AIME 2025 and GPQA-Diamond.** The first release ran ESC with a window of 5 on
+  these two settings instead of the documented 8. Corrected: AIME 79.0% with 35.2
+  samples and 707K tokens (was 78.5%, 25.1, 536K); GPQA 48.1% with 37.8 samples (was
+  48.2%, 22.4).
+* **MMC.** The first vote for a non-leading answer was not charged to the
+  leader-versus-runner-up process. Fixed; table entries move by at most 0.1 point and
+  1.3 samples.
+* **ConSol.** An earlier version of finding 4 read as if ConSol broke a guarantee. It
+  states none; the finding now says so.
 
 ## Data and licence
 
